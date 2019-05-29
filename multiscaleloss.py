@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
 
-
+        #[8,2,320,448]
 def EPE(input_flow, target_flow, sparse=False, mean=True):
-    EPE_map = torch.norm(target_flow-input_flow,2,1)
+    EPE_map = torch.norm(target_flow-input_flow,p=2,dim= 1)#对dim=1求2范数 #tensor [B,320,448]
     batch_size = EPE_map.size(0)
     if sparse:
         # invalid flow is defined with both flow coordinates to be exactly 0

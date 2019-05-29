@@ -21,8 +21,10 @@ parser = argparse.ArgumentParser(description='PyTorch FlowNet inference on a fol
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', metavar='DIR',default='input/',
                     help='path to images folder, image names must match \'[name]0.[ext]\' and \'[name]1.[ext]\'')
-parser.add_argument('--pretrained', metavar='PTH', default='/home/roit/models/flownet/flownets_bn_EPE2.459.pth',help='path to pre-trained model')
-parser.add_argument('--output', '-o', metavar='DIR', default=None,
+parser.add_argument('--pretrained', metavar='PTH', default='model_args/model_best.pth.tar',help='path to pre-trained model')
+#parser.add_argument('--pretrained', metavar='PTH', default='/home/roit/models/flownet/flownets_bn_EPE2.459.pth.tar',help='path to pre-trained model')
+
+parser.add_argument('--output', '-o', metavar='DIR', default='output/',
                     help='path to output folder. If not set, will be created in data folder')
 parser.add_argument('--output-value', '-v', choices=['raw', 'vis', 'both'], default='both',
                     help='which value to output, between raw input (as a npy file) and color vizualisation (as an image file).'
@@ -100,18 +102,21 @@ def main():
 
         if args.bidirectional:
             # feed inverted pair along with normal pair
-            inverted_input_var = torch.cat([img2, img1]).unsqueeze(0)
+            inverted_input_var = torch.cat([img2, img1]).unsqueeze(0)# 如果用flownetc 到时候再分开
             input_var = torch.cat([input_var, inverted_input_var])
 
         input_var = input_var.to(device)
         # compute output
-        output,_ = model(input_var)#Tensor [1,2,h/4,w/4]
+        output= model(input_var)#outTensor [1,2,h/4,w/4]
+
         if args.upsampling is not None:
             output = F.interpolate(output, size=img1.size()[-2:], mode=args.upsampling, align_corners=False)
+            out1 = F.interpolate(output, size=img1.size()[-2:], mode=args.upsampling, align_corners=False)
+
         for suffix, flow_output in zip(['flow', 'inv_flow'], output):
             filename = save_path/'{}{}'.format(img1_file.namebase[:-1], suffix)
             if args.output_value in['vis', 'both']:
-                tmp=args.div_flow * flow_output[0]
+                tmp=args.div_flow * flow_output
                 rgb_flow = flow2rgb(tmp, max_value=args.max_flow)
                 to_save = (rgb_flow * 255).astype(np.uint8).transpose(1,2,0)
                 imwrite(filename + '.png', to_save)
@@ -119,6 +124,7 @@ def main():
                 # Make the flow map a HxWx2 array as in .flo files
                 to_save = (args.div_flow*flow_output).cpu().numpy().transpose(1,2,0)
                 np.save(filename + '.npy', to_save)
+
 
 
 if __name__ == '__main__':

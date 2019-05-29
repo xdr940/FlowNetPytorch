@@ -26,7 +26,7 @@ def conv(batchNorm, in_planes, out_planes, kernel_size=3, stride=1):
 
 
 def predict_flow(in_planes):
-    return nn.Conv2d(in_planes,2,kernel_size=3,stride=1,padding=1,bias=False)
+    return nn.Conv2d(in_channels=in_planes,out_channels=2,kernel_size=3,stride=1,padding=1,bias=False)
 
 
 def deconv(in_planes, out_planes):

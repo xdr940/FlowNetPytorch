@@ -57,39 +57,40 @@ class FlowNetS(nn.Module):
 
     def forward(self, x):
         #out_conv1 = self.conv1(x)
-        out_conv2 = self.conv2(self.conv1(x))
-        out_conv3 = self.conv3_1(self.conv3(out_conv2))
-        out_conv4 = self.conv4_1(self.conv4(out_conv3))
-        out_conv5 = self.conv5_1(self.conv5(out_conv4))
-        out_conv6 = self.conv6_1(self.conv6(out_conv5))#[1,1024,6,8]
+        out_conv2 = self.conv2(self.conv1(x))#out_conv2[1,128,96,128]
+        out_conv3 = self.conv3_1(self.conv3(out_conv2))#out_conv3[1,256,48,64]
+        out_conv4 = self.conv4_1(self.conv4(out_conv3))#out_conv4[1,512,24,32]
+        out_conv5 = self.conv5_1(self.conv5(out_conv4))#out_conv5[1,512,12,16]
+        out_conv6 = self.conv6_1(self.conv6(out_conv5))#out_conv6[1,1024,6,8]
 
         #refinement
-        flow6       = self.predict_flow6(out_conv6)#
-        flow6_up    = crop_like(self.upsampled_flow6_to_5(flow6), out_conv5)
-        out_deconv5 = crop_like(self.deconv5(out_conv6), out_conv5)
+        flow6       = self.predict_flow6(out_conv6)#flow6 [1,2,6,8]
+        flow6_up    = crop_like(self.upsampled_flow6_to_5(flow6), out_conv5)#[1,2,48,64]
+        out_deconv5 = crop_like(self.deconv5(out_conv6), out_conv5)#[1,512,12,16]
 
-        concat5 = torch.cat((out_conv5,out_deconv5,flow6_up),1)
+        concat5 = torch.cat((out_conv5,out_deconv5,flow6_up),1)#torch.Size([1, 1026, 12, 16])
         flow5       = self.predict_flow5(concat5)
         flow5_up    = crop_like(self.upsampled_flow5_to_4(flow5), out_conv4)
         out_deconv4 = crop_like(self.deconv4(concat5), out_conv4)
 
-        concat4 = torch.cat((out_conv4,out_deconv4,flow5_up),1)
-        flow4       = self.predict_flow4(concat4)
-        flow4_up    = crop_like(self.upsampled_flow4_to_3(flow4), out_conv3)
-        out_deconv3 = crop_like(self.deconv3(concat4), out_conv3)
+        concat4 = torch.cat((out_conv4,out_deconv4,flow5_up),1)#torch.Size([1, 770, 24, 32])
+        flow4       = self.predict_flow4(concat4)#torch.Size([1, 2, 24, 32])
+        flow4_up    = crop_like(self.upsampled_flow4_to_3(flow4), out_conv3)#torch.Size([1, 2, 48, 64])
+        out_deconv3 = crop_like(self.deconv3(concat4), out_conv3)#torch.Size([1, 128, 48, 64])
 
-        concat3 = torch.cat((out_conv3,out_deconv3,flow4_up),1)
-        flow3       = self.predict_flow3(concat3)
-        flow3_up    = crop_like(self.upsampled_flow3_to_2(flow3), out_conv2)
-        out_deconv2 = crop_like(self.deconv2(concat3), out_conv2)
+                            #256+128+2 = 386 按axis = 1 cat
+        concat3 = torch.cat((out_conv3,out_deconv3,flow4_up),1)#torch.Size([1, 386, 48, 64])
+        flow3       = self.predict_flow3(concat3)#torch.Size([1, 2, 48, 64])
+        flow3_up    = crop_like(self.upsampled_flow3_to_2(flow3), out_conv2)#torch.Size([1, 2, 96, 128])
+        out_deconv2 = crop_like(self.deconv2(concat3), out_conv2)#torch.Size([1, 64, 96, 128])
 
-        concat2 = torch.cat((out_conv2,out_deconv2,flow3_up),1)
-        flow2 = self.predict_flow2(concat2)
+        concat2 = torch.cat((out_conv2,out_deconv2,flow3_up),1)#torch.Size([1, 194, 96, 128])
+        flow2 = self.predict_flow2(concat2)#torch.Size([1, 2, 96, 128])
 
         if self.training:
             return flow2,flow3,flow4,flow5,flow6
         else:
-            return flow2#flow2 结果是96, 128 ，论文上是136x320
+            return flow2#flow2 结果是1,2,96,128 ，论文上是136x320
 
     def weight_parameters(self):
         return [param for name, param in self.named_parameters() if 'weight' in name]
